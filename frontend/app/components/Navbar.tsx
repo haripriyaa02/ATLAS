@@ -44,6 +44,7 @@ export default function AuthNavbar() {
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/results">Past Results</Link>
             <Link href="/segment">Segment</Link>
+            <Link href="/video">Video</Link>
             <Link href="/batch">Batch</Link>
             <Link href="/compare">Compare</Link>
             <button onClick={handleSignOut} className="nav-signout-btn">

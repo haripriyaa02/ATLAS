@@ -103,6 +103,12 @@ export default function DashboardPage() {
           <p>Upload a road image and run AI segmentation</p>
           <span className="dash-action-arrow">→</span>
         </Link>
+        <Link href="/video" className="dash-action-card dash-action-primary">
+          <div className="dash-action-icon">🎬</div>
+          <h3>Video</h3>
+          <p>Process road videos frame-by-frame</p>
+          <span className="dash-action-arrow">→</span>
+        </Link>
         <Link href="/compare" className="dash-action-card">
           <div className="dash-action-icon">⚖️</div>
           <h3>Compare</h3>
@@ -113,12 +119,6 @@ export default function DashboardPage() {
           <div className="dash-action-icon">📂</div>
           <h3>Batch</h3>
           <p>Process multiple images with CSV report</p>
-          <span className="dash-action-arrow">→</span>
-        </Link>
-        <Link href="/results" className="dash-action-card">
-          <div className="dash-action-icon">📁</div>
-          <h3>Past Results</h3>
-          <p>View all your saved segmentations</p>
           <span className="dash-action-arrow">→</span>
         </Link>
       </div>

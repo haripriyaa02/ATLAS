@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 interface MethodResult {
   key: string;
@@ -23,6 +23,7 @@ export default function ComparePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMode, setShowMode] = useState<ShowMode>("overlay");
+  const [threshold, setThreshold] = useState(0.5);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,7 +51,7 @@ export default function ComparePage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(`${API}/compare?threshold=0.5`, {
+      const res = await fetch(`${API}/compare?threshold=${threshold}`, {
         method: "POST",
         body: form,
       });
@@ -103,9 +104,13 @@ export default function ComparePage() {
             <button className="btn btn-secondary" style={{ padding: "8px 16px", fontSize: "0.8rem" }} onClick={() => { setFile(null); setPreview(null); setMethods(null); }}>✕ Clear</button>
           </div>
 
-          <div className="controls-row" style={{ justifyContent: "center", marginTop: 24 }}>
-            <button className="btn btn-primary" onClick={runCompare} disabled={loading}>
-              {loading ? "⏳ Running all methods..." : "⚔️ Compare All Methods"}
+          <div className="controls-row" style={{ marginTop: 24 }}>
+            <div className="control-group">
+              <label>UNet Threshold <span className="threshold-value">{threshold.toFixed(2)}</span></label>
+              <input type="range" min="0.1" max="0.9" step="0.05" value={threshold} className="threshold-slider" onChange={(e) => setThreshold(parseFloat(e.target.value))} />
+            </div>
+            <button className="btn btn-primary" onClick={runCompare} disabled={loading} style={{ height: 46 }}>
+              {loading ? "⏳ Running..." : "⚔️ Compare All"}
             </button>
           </div>
         </>

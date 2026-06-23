@@ -19,8 +19,8 @@ export default function Home() {
           </h1>
           <p>
             ATLAS combines a deep-learning UNet model with adaptive thresholding
-            to deliver fast, accurate road segmentation — no manual tuning
-            required.
+            to deliver fast, accurate road segmentation on images and videos — no
+            manual tuning required.
           </p>
           <div className="hero-actions">
             <Link href="/segment" className="btn btn-primary">
@@ -58,8 +58,8 @@ export default function Home() {
         <div className="section-label">Capabilities</div>
         <h2 className="section-title">What ATLAS Can Do</h2>
         <p className="section-subtitle">
-          From satellite imagery to dashcam frames — upload any road image and
-          get instant, pixel-level segmentation.
+          From satellite imagery to dashcam footage — upload any road image or
+          video and get instant, pixel-level segmentation.
         </p>
         <div className="features-grid">
           <div className="feature-card">
@@ -75,7 +75,8 @@ export default function Home() {
             <h3>Real-Time Inference</h3>
             <p>
               TorchScript-optimized model runs in ~15ms per image on GPU,
-              enabling real-time applications and batch processing.
+              enabling real-time applications, batch processing, and full video
+              segmentation.
             </p>
           </div>
           <div className="feature-card">
@@ -103,11 +104,11 @@ export default function Home() {
             </p>
           </div>
           <div className="feature-card">
-            <div className="feature-icon">🌐</div>
-            <h3>API-First Design</h3>
+            <div className="feature-icon">🎬</div>
+            <h3>Image & Video Analysis</h3>
             <p>
-              FastAPI backend with full OpenAPI documentation. Integrate road
-              segmentation into any application via REST.
+              Upload road images or dashcam footage and get instant
+              segmentation with downloadable processed output.
             </p>
           </div>
         </div>

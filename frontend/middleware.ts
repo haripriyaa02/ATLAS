@@ -7,8 +7,8 @@ export async function middleware(request: NextRequest) {
     request.cookies.get("better-auth.session_token") ||
     request.cookies.get("__Secure-better-auth.session_token");
 
-  // Protected routes — require auth: dashboard, results, batch, compare
-  const protectedPaths = ["/dashboard", "/results", "/batch", "/compare"];
+  // Protected routes — require auth: dashboard, results, batch, compare, video
+  const protectedPaths = ["/dashboard", "/results", "/batch", "/compare", "/video"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   if (isProtected && !sessionCookie) {
@@ -31,6 +31,7 @@ export const config = {
     "/results/:path*",
     "/batch/:path*",
     "/compare/:path*",
+    "/video/:path*",
     "/sign-in",
     "/sign-up",
   ],

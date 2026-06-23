@@ -2,8 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 /* ---------- types ---------- */
 interface Metrics {
@@ -44,6 +45,7 @@ type ViewTab = "overlay" | "mask" | "original" | "heatmap";
 
 export default function SegmentPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [threshold, setThreshold] = useState(0.5);
@@ -89,9 +91,13 @@ export default function SegmentPage() {
       e.preventDefault();
       setDragging(false);
       const f = e.dataTransfer.files?.[0];
+      if (f && f.type.startsWith("video/")) {
+        router.push("/video");
+        return;
+      }
       if (f && f.type.startsWith("image/")) handleFile(f);
     },
-    [handleFile]
+    [handleFile, router]
   );
 
   /* ---------- prediction ---------- */
@@ -299,9 +305,9 @@ export default function SegmentPage() {
           onDrop={onDrop}
         >
           <div className="upload-icon">📷</div>
-          <h3>Drop your road image here</h3>
-          <p>or <span className="browse-link">browse files</span> · JPG, PNG supported</p>
-          <input ref={inputRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          <h3>Drop your road image or video here</h3>
+          <p>or <span className="browse-link">browse files</span> · JPG, PNG, MP4, AVI supported</p>
+          <input ref={inputRef} type="file" accept="image/*,video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) { if (f.type.startsWith("video/")) { router.push("/video"); return; } handleFile(f); } }} />
         </div>
       )}
 

@@ -14,7 +14,7 @@
 [![Neon](https://img.shields.io/badge/Neon-PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech/)
 [![License](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
-*Full-stack AI road segmentation platform — UNet deep learning + 5 classical methods, served via FastAPI with an interactive Next.js web interface, Better Auth authentication, and Neon PostgreSQL for persistent storage.*
+*Full-stack AI road segmentation platform — UNet deep learning + 5 classical methods, image & video processing, served via FastAPI with an interactive Next.js web interface, Better Auth authentication, and Neon PostgreSQL for persistent storage.*
 
 </div>
 
@@ -53,8 +53,9 @@ Traditional road segmentation struggles with real-world conditions — shadows, 
 
 - **UNet Model** (ResNet34 encoder) achieving **85%+ IoU**
 - **5 Classical Methods** — Otsu, Adaptive Mean/Gaussian, Sauvola, Niblack
-- **FastAPI Backend** — 7 API endpoints for inference, comparison, pipeline visualization, batch processing, and annotation
-- **Next.js Frontend** — Premium dark-themed UI with interactive segmentation, method comparison, batch processing, and ground truth annotation
+- **Video Segmentation** — Frame-by-frame processing with H.264 output via ffmpeg
+- **FastAPI Backend** — 10 API endpoints for inference, comparison, pipeline visualization, batch processing, video processing, and annotation
+- **Next.js Frontend** — Premium dark-themed UI with interactive segmentation, video processing, method comparison, batch processing, and ground truth annotation
 - **Better Auth** — Email/password + Google OAuth authentication
 - **Neon PostgreSQL** — Cloud database for persistent segmentation result storage
 
@@ -65,6 +66,7 @@ Traditional road segmentation struggles with real-world conditions — shadows, 
 | Feature | Description |
 |---------|-------------|
 | 🧠 **Deep Learning Model** | UNet + ResNet34 achieving 85%+ IoU, ~15ms GPU inference |
+| 🎬 **Video Segmentation** | Frame-by-frame video processing with adjustable sample rate, H.264 output |
 | 🔐 **Authentication** | Email/password + Google OAuth via Better Auth |
 | 💾 **Persistent Storage** | Segmentation results saved to Neon PostgreSQL for logged-in users |
 | ⚔️ **Method Comparison** | Side-by-side comparison of UNet vs 5 classical thresholding methods |
@@ -76,7 +78,7 @@ Traditional road segmentation struggles with real-world conditions — shadows, 
 | 💾 **Download Results** | Export mask, overlay, heatmap as PNG or full ZIP package |
 | 📁 **Past Results** | View all saved segmentation history with detail view |
 | 🕘 **Session History** | Gallery of past predictions — click to reload any result |
-| 🌐 **REST API** | 7 FastAPI endpoints with OpenAPI docs at `/docs` |
+| 🌐 **REST API** | 10 FastAPI endpoints with OpenAPI docs at `/docs` |
 
 ---
 
@@ -101,9 +103,11 @@ Traditional road segmentation struggles with real-world conditions — shadows, 
 │  Guest Pages:      Auth Pages:          Backend Endpoints:                │
 │  Home, Segment,    Dashboard, Results,  /predict, /compare,              │
 │  About, Sign In    Segment (saves),     /pipeline, /download,            │
-│                    Batch, Compare        /threshold-grid,                  │
-│                                         /compute-metrics,                 │
-│                                         /predict/batch                    │
+│                    Batch, Compare,       /threshold-grid,                  │
+│                    Video                 /compute-metrics,                 │
+│                                         /predict/batch,                   │
+│                                         /predict/video,                   │
+│                                         /video/info                       │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -113,14 +117,14 @@ Traditional road segmentation struggles with real-world conditions — shadows, 
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------| 
-| **Frontend** | Next.js 16, TypeScript, Tailwind v4 | 8-page web UI with interactive tools |
+| **Frontend** | Next.js 16, TypeScript, Tailwind v4 | 9-page web UI with interactive tools |
 | **Authentication** | Better Auth | Email/password + Google OAuth |
 | **Database** | Neon PostgreSQL | User accounts + saved segmentation results |
-| **Backend** | FastAPI, Uvicorn | REST API with 7 endpoints |
+| **Backend** | FastAPI, Uvicorn | REST API with 10 endpoints |
 | **DL Model** | PyTorch, segmentation-models-pytorch | UNet with ResNet34 encoder |
 | **Inference** | TorchScript | Optimized production model |
 | **Classical CV** | OpenCV, NumPy | 5 thresholding methods + CLAHE preprocessing |
-| **Image Processing** | OpenCV, Pillow | Overlay, heatmap, encoding |
+| **Image/Video** | OpenCV, Pillow, ffmpeg | Overlay, heatmap, encoding, video re-encoding |
 
 ---
 
@@ -143,6 +147,7 @@ ATLAS uses **Better Auth** for authentication with two providers:
 | **Sign In/Up** | ✅ | Redirects to Dashboard |
 | **Dashboard** (`/dashboard`) | 🔒 → Sign In | ✅ |
 | **Past Results** (`/results`) | 🔒 → Sign In | ✅ |
+| **Video** (`/video`) | 🔒 → Sign In | ✅ |
 | **Compare** (`/compare`) | 🔒 → Sign In | ✅ |
 | **Batch** (`/batch`) | 🔒 → Sign In | ✅ |
 
@@ -152,7 +157,7 @@ ATLAS uses **Better Auth** for authentication with two providers:
 
 ### Prerequisites
 
-- **Python 3.10+** · **Node.js 18+** · **GPU** (optional, falls back to CPU)
+- **Python 3.10+** · **Node.js 18+** · **ffmpeg** (for video processing) · **GPU** (optional, falls back to CPU)
 
 ### 1. Clone
 
@@ -387,7 +392,15 @@ Same as guest segment, but results are **automatically saved to the database**.
 #### 7. ⚔️ Compare (`/compare`)
 Upload one image, see **UNet vs 5 classical methods** in a 6-card grid. Toggle between overlay and mask views.
 
-#### 8. 📦 Batch (`/batch`)
+#### 8. 🎬 Video (`/video`) — 🔒 auth required
+Upload a road video (MP4, AVI, MOV) for frame-by-frame segmentation.
+- **Preview** — First frame + overlay preview before processing
+- **Controls** — Threshold, sample rate (skip frames), max frame limit
+- **Processing Stats** — Frames processed, avg road %, avg inference time, total time
+- **Playback** — In-browser video player for processed output (H.264)
+- **Download** — Save processed video as MP4
+
+#### 9. 📦 Batch (`/batch`)
 Upload multiple images at once. Summary stats, per-image results, and **CSV report download**.
 
 ---
@@ -407,6 +420,9 @@ Upload multiple images at once. Summary stats, per-image results, and **CSV repo
 | `/compute-metrics` | POST | IoU & Dice between two masks |
 | `/predict/batch` | POST | Multi-image prediction |
 | `/download` | POST | ZIP with mask, overlay, heatmap, metrics JSON |
+| `/video/info` | POST | Video metadata + preview frame + overlay preview |
+| `/predict/video` | POST | Frame-by-frame video segmentation → base64 MP4 + stats |
+| `/predict/video/download` | POST | Process video → stream back as downloadable MP4 |
 
 Full interactive docs at **http://localhost:8000/docs**
 
@@ -470,9 +486,10 @@ ATLAS/
 ├── .gitignore
 │
 ├── backend/                          # FastAPI Backend
-│   ├── main.py                       # 7 API endpoints
+│   ├── main.py                       # 10 API endpoints
 │   ├── inference.py                  # UNet model wrapper
 │   ├── classical_methods.py          # 5 thresholding methods + metrics
+│   ├── video_processing.py           # Video frame-by-frame processing + ffmpeg re-encoding
 │   ├── requirements.txt
 │   └── models/                       # Model files (gitignored)
 │       ├── model.pt
@@ -495,6 +512,7 @@ ATLAS/
 │       ├── dashboard/page.tsx        # User dashboard
 │       ├── results/page.tsx          # Past results history
 │       ├── segment/page.tsx          # Segmentation + all tools
+│       ├── video/page.tsx            # Video segmentation (auth required)
 │       ├── compare/page.tsx          # Method comparison
 │       ├── batch/page.tsx            # Batch processing
 │       ├── about/page.tsx            # About page
@@ -550,7 +568,7 @@ MIT License — see [LICENSE](LICENSE) for details.
   title={ATLAS: Adaptive Thresholding with Language-Augmented Sensing},
   author={Jaswanth Prasanna V and Divya R and Haripriya K},
   year={2026},
-  institution={IIT Madras},
+  institution={Rajalakshmi Institute of Technology},
   note={Full-stack AI road segmentation with UNet, classical methods, authentication, and interactive web UI}
 }
 ```

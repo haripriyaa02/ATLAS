@@ -8,6 +8,7 @@ import base64
 import os
 import time
 import zipfile
+import gc
 
 import cv2
 import numpy as np
@@ -18,6 +19,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from inference import RoadSegmentationInference
 from classical_methods import run_all_methods, compute_metrics, preprocess_for_classical
+from video_processing import VideoProcessor
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -44,15 +46,17 @@ MODEL_PATH = os.path.join(MODEL_DIR, "model.pt")
 CONFIG_PATH = os.path.join(MODEL_DIR, "model_config.json")
 
 model: RoadSegmentationInference | None = None
+video_processor: VideoProcessor | None = None
 
 
 @app.on_event("startup")
 async def load_model():
-    global model
+    global model, video_processor
     if not os.path.exists(MODEL_PATH):
         print(f"⚠️  Model file not found at {MODEL_PATH}")
         return
     model = RoadSegmentationInference(MODEL_PATH, CONFIG_PATH, device="cuda")
+    video_processor = VideoProcessor(model)
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +70,22 @@ def numpy_to_base64_png(img: np.ndarray) -> str:
         pil_img = Image.fromarray(img, mode="RGB")
     buf = io.BytesIO()
     pil_img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+
+def numpy_to_base64_jpeg(img: np.ndarray, quality: int = 80, max_dim: int = 800) -> str:
+    """Convert a numpy image to a compressed base64-encoded JPEG string."""
+    h, w = img.shape[:2]
+    if max(h, w) > max_dim:
+        scale = max_dim / max(h, w)
+        img = cv2.resize(img, (int(w * scale), int(h * scale)))
+
+    if len(img.shape) == 2:
+        pil_img = Image.fromarray(img, mode="L")
+    else:
+        pil_img = Image.fromarray(img, mode="RGB")
+    buf = io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=quality)
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
@@ -420,3 +440,150 @@ async def download_zip(
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=atlas_results.zip"},
     )
+
+
+# ---------------------------------------------------------------------------
+# 8. Video Info — get metadata and preview frame from a video
+# ---------------------------------------------------------------------------
+import tempfile
+
+@app.post("/video/info")
+async def video_info(file: UploadFile = File(...)):
+    """Get video metadata and a preview frame."""
+    if model is None or video_processor is None:
+        raise HTTPException(503, "Model not loaded")
+
+    # Save uploaded video to temp file
+    suffix = os.path.splitext(file.filename or "video.mp4")[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        contents = await file.read()
+        tmp.write(contents)
+        tmp_path = tmp.name
+
+    try:
+        frame_rgb, info = video_processor.extract_preview_frame(tmp_path)
+        preview_b64 = numpy_to_base64_jpeg(frame_rgb)
+
+        # Also run prediction on preview frame
+        mask, prob_map, inference_ms = model.predict(frame_rgb, threshold=0.5)
+        overlay = model.create_overlay(frame_rgb, mask)
+        overlay_b64 = numpy_to_base64_jpeg(overlay)
+
+        total_px = mask.shape[0] * mask.shape[1]
+        road_px = int(np.sum(mask > 0))
+
+        return JSONResponse({
+            "info": info,
+            "preview": preview_b64,
+            "preview_overlay": overlay_b64,
+            "preview_metrics": {
+                "road_percentage": round(road_px / total_px * 100, 2),
+                "inference_time_ms": round(inference_ms, 1),
+            },
+        })
+    finally:
+        os.unlink(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# 9. Video Predict — process full video with road segmentation overlay
+# ---------------------------------------------------------------------------
+@app.post("/predict/video")
+async def predict_video(
+    file: UploadFile = File(...),
+    threshold: float = Query(0.5, ge=0.0, le=1.0),
+    sample_rate: int = Query(1, ge=1, le=30),
+    max_frames: int = Query(0, ge=0),
+):
+    """Upload a video → process frame-by-frame → return processed MP4 + stats."""
+    if model is None or video_processor is None:
+        raise HTTPException(503, "Model not loaded")
+
+    suffix = os.path.splitext(file.filename or "video.mp4")[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_in:
+        contents = await file.read()
+        tmp_in.write(contents)
+        input_path = tmp_in.name
+
+    # Free upload bytes immediately
+    del contents
+    gc.collect()
+
+    output_path = input_path + "_output.mp4"
+
+    try:
+        stats = video_processor.process_video(
+            input_path=input_path,
+            output_path=output_path,
+            threshold=threshold,
+            max_frames=max_frames,
+            sample_rate=sample_rate,
+        )
+
+        # Delete input video BEFORE reading output to free memory
+        if os.path.exists(input_path):
+            os.unlink(input_path)
+        gc.collect()
+
+        # Read the output video and encode as base64
+        with open(output_path, "rb") as f:
+            video_bytes = f.read()
+
+        video_b64 = base64.b64encode(video_bytes).decode("utf-8")
+        del video_bytes
+        gc.collect()
+
+        return JSONResponse({
+            "video": video_b64,
+            "stats": stats,
+        })
+    finally:
+        for p in [input_path, output_path, output_path + ".raw.mp4"]:
+            if os.path.exists(p):
+                os.unlink(p)
+
+
+# ---------------------------------------------------------------------------
+# 10. Video Download — process and stream back as MP4
+# ---------------------------------------------------------------------------
+@app.post("/predict/video/download")
+async def predict_video_download(
+    file: UploadFile = File(...),
+    threshold: float = Query(0.5, ge=0.0, le=1.0),
+    sample_rate: int = Query(1, ge=1, le=30),
+    max_frames: int = Query(0, ge=0),
+):
+    """Upload a video → process → stream back the result MP4 as download."""
+    if model is None or video_processor is None:
+        raise HTTPException(503, "Model not loaded")
+
+    suffix = os.path.splitext(file.filename or "video.mp4")[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_in:
+        contents = await file.read()
+        tmp_in.write(contents)
+        input_path = tmp_in.name
+
+    output_path = input_path + "_output.mp4"
+
+    try:
+        video_processor.process_video(
+            input_path=input_path,
+            output_path=output_path,
+            threshold=threshold,
+            max_frames=max_frames,
+            sample_rate=sample_rate,
+        )
+
+        with open(output_path, "rb") as f:
+            video_bytes = f.read()
+
+        buf = io.BytesIO(video_bytes)
+        return StreamingResponse(
+            buf,
+            media_type="video/mp4",
+            headers={"Content-Disposition": "attachment; filename=atlas_segmented.mp4"},
+        )
+    finally:
+        for p in [input_path, output_path, output_path + ".raw.mp4"]:
+            if os.path.exists(p):
+                os.unlink(p)

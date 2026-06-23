@@ -1,0 +1,32 @@
+{
+  "model_name": "UNet",
+  "encoder": "resnet34",
+  "input_shape": [
+    256,
+    256
+  ],
+  "road_classes": [
+    70,
+    89,
+    69,
+    71,
+    72,
+    68,
+    90,
+    105,
+    106,
+    117,
+    118,
+    138
+  ],
+  "num_classes": 1,
+  "team": [
+    "Divya R",
+    "Haripriya K",
+    "Jaswanth Prasanna V"
+  ],
+  "trained_date": "2026-04-07T17:51:14.707542",
+  "onnx_exported": true,
+  "exported_date": "2026-04-07T18:09:19.772356",
+  "opset_version": 11
+}

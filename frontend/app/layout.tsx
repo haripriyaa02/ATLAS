@@ -36,8 +36,7 @@ function Footer() {
     <footer className="footer">
       <p className="footer-brand">🗺️ ATLAS — Mapping Roads with Intelligence</p>
       <p>
-        Built by Divya R, Haripriya K &amp; Jaswanth Prasanna V &bull; IIT
-        Madras &bull; 2026
+        Built by Divya R, Haripriya K &amp; Jaswanth Prasanna V &bull; Rajalakshmi Institute of Technology &bull; 2026
       </p>
     </footer>
   );
